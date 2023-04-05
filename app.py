@@ -1,6 +1,6 @@
 import telebot
-from config import TOKEN, keys
-from extensions import ConvertionException, CryptoConverter
+from config import TOKEN, exchange
+from extensions import ApiException, CryptoConverter
 
 bot = telebot.TeleBot(TOKEN)
 
@@ -8,6 +8,7 @@ bot = telebot.TeleBot(TOKEN)
 @bot.message_handler(commands=['start', 'help'])
 def start_help(message: telebot.types.Message):
     text = 'Приветствую Тебя, Мамкин Инвестор! \n \
+Если ты решил поменять валюту, которую сейчас хрен купишь - этот бот для тебя! \
 Чтобы начать работу, введите команду в следующем формате:\n \
 <имя валюты> <в какую валюту перевести> <Количество переводимой валюты>\n \
 Пример: доллар рубль 100\n \
@@ -18,7 +19,7 @@ def start_help(message: telebot.types.Message):
 @bot.message_handler(commands=['values'])
 def values(message: telebot.types.Message):
     text = 'Доступные валюты:'
-    for key in keys.keys():
+    for key in exchange.keys():
         text = '\n'.join((text, key,))
     bot.reply_to(message, text)
 
@@ -26,19 +27,18 @@ def values(message: telebot.types.Message):
 @bot.message_handler(content_types=['text', ])
 def convert(message: telebot.types.Message):
     try:
-        values = message.text.split(' ')
+        quote, base, amount = message.text.split()
+    except ValueError as err:
+        bot.reply_to(message, f'Неверное количество параметров!\n {err}')
 
-        if len(values) != 3:
-            raise ConvertionException('Неверное количество параметров')
-
-        quote, base, amount = values
-        total_base = CryptoConverter.convert(quote, base, amount)
-    except ConvertionException as err:
+    try:
+        total_base = CryptoConverter.get_price(quote, base, amount)
+    except ApiException as err:
         bot.reply_to(message, f'Ошбка данных пользователя\n {err}')
     except Exception as err:
         bot.reply_to(message, f'Не удалось обработать команду\n {err}')
     else:
-        text = f'Цена {amount} {quote} в {base} - {total_base}'
+        text = f'Цена {amount} {quote} в 1 {base} - {total_base}'
         bot.send_message(message.chat.id, text)
 
 
